@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 
-export const SHEET_ID = '1KN2f8bm0uED--GQpofpBpC-aS9AZzdzeiRN73tbF254'
-export const SHEET_NAME = 'Página conectada 2'
+export const APPS_SCRIPT_URL = 'https://script.google.com/a/macros/mercadolivre.com/s/AKfycbyLil7nGAYDnEcC2iK3n0gdVNv_jCfAL6dQ2Td-lva1OtLQZgC5KB5TOGxq3jvWJPZG/exec'
 export const META_PU = 92.9
 
 function parseDate(str) {
@@ -54,11 +53,10 @@ export function useSheetsData() {
   const load = async () => {
     setLoading(true); setError(null)
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`
-      const res = await fetch(url)
+      const res = await fetch(APPS_SCRIPT_URL)
       if (!res.ok) throw new Error('Erro ao carregar planilha')
-      const csv = await res.text()
-      setRaw(processRows(csvToRows(csv)))
+      const json = await res.json()
+      setRaw(processRows(json))
       setLastUpdated(new Date())
     } catch(e) { setError(e.message) }
     finally { setLoading(false) }
