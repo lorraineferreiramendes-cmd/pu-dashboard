@@ -1,34 +1,23 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 
-export const APPS_SCRIPT_URL = 'https://script.google.com/a/macros/mercadolivre.com/s/AKfycbyLil7nGAYDnEcC2iK3n0gdVNv_jCfAL6dQ2Td-lva1OtLQZgC5KB5TOGxq3jvWJPZG/exec'
 export const META_PU = 92.9
 
 function parseDate(str) {
   if (!str) return null
-  if (str.includes('/')) {
-    const [d, m, y] = str.split('/')
+  const s = String(str)
+  if (s.includes('/')) {
+    const [d, m, y] = s.split('/')
     return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`)
   }
-  return new Date(str)
-}
-
-function csvToRows(csv) {
-  const lines = csv.trim().split('\n')
-  const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g,'').trim())
-  return lines.slice(1).map(line => {
-    const vals = []
-    let cur = '', inQ = false
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i]
-      if (c === '"') inQ = !inQ
-      else if (c === ',' && !inQ) { vals.push(cur.trim()); cur = '' }
-      else cur += c
-    }
-    vals.push(cur.trim())
-    const obj = {}
-    headers.forEach((h, i) => { obj[h] = (vals[i]||'').replace(/^"|"$/g,'') })
-    return obj
-  }).filter(r => r.route_date)
+  if (s.includes('-')) return new Date(s)
+  // Excel serial date
+  const n = parseFloat(s)
+  if (!isNaN(n) && n > 40000) {
+    const d = new Date(Date.UTC(1899, 11, 30))
+    d.setUTCDate(d.getUTCDate() + n)
+    return d
+  }
+  return null
 }
 
 function processRows(rows) {
@@ -41,7 +30,7 @@ function processRows(rows) {
     const dateStr = date ? date.toISOString().slice(0,10) : ''
     const dow = date ? date.getDay() : -1
     return { ...r, _col: col, _est: est, _nao: nao, _pu: pu, _date: date, _dateStr: dateStr, _dow: dow }
-  })
+  }).filter(r => r._dateStr)
 }
 
 export function useSheetsData() {
@@ -53,13 +42,16 @@ export function useSheetsData() {
   const load = async () => {
     setLoading(true); setError(null)
     try {
-      const res = await fetch(APPS_SCRIPT_URL)
-      if (!res.ok) throw new Error('Erro ao carregar planilha')
+      const res = await fetch('/api/data')
       const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erro ao carregar dados')
       setRaw(processRows(json))
       setLastUpdated(new Date())
-    } catch(e) { setError(e.message) }
-    finally { setLoading(false) }
+    } catch(e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
